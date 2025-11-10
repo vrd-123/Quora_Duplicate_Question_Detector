@@ -1,0 +1,33 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Data and artifacts
+models/
+*.joblib
+*.pkl
+*.pickle
+train.csv
+test.csv
+*.zip
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
+
+
