@@ -18,14 +18,6 @@ env/
 # Streamlit
 .streamlit/secrets.toml
 
-# Data and artifacts
-models/
-*.joblib
-*.pkl
-*.pickle
-train.csv
-test.csv
-*.zip
 
 # Notebooks checkpoints
 .ipynb_checkpoints/
