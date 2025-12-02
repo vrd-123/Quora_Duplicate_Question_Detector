@@ -11,7 +11,13 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import precision_score
+from sklearn.metrics import (
+	precision_score,
+	recall_score,
+	f1_score,
+	accuracy_score,
+	roc_auc_score,
+)
 from sklearn.ensemble import RandomForestClassifier
 from scipy.sparse import csr_matrix, vstack, hstack
 import gensim.downloader as api
@@ -111,6 +117,20 @@ def compute_tfidf_weighted_embeddings(
 	return w2v_sparse
 
 
+def find_optimal_threshold(y_true: np.ndarray, y_proba: np.ndarray) -> float:
+	"""Find the probability threshold that maximizes F1 score."""
+	thresholds = np.linspace(0.1, 0.9, 81)
+	best_thresh = 0.5
+	best_f1 = -1.0
+	for thresh in thresholds:
+		preds = (y_proba >= thresh).astype(np.int8)
+		f1 = f1_score(y_true, preds)
+		if f1 > best_f1:
+			best_f1 = f1
+			best_thresh = float(thresh)
+	return best_thresh
+
+
 def main():
 	ensure_nltk()
 	df = pd.read_csv('train.csv')
@@ -130,11 +150,32 @@ def main():
 
 	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
 
-	model = RandomForestClassifier()
+	model = RandomForestClassifier(
+		n_estimators=600,
+		max_depth=None,
+		min_samples_split=2,
+		min_samples_leaf=1,
+		n_jobs=-1,
+		random_state=42,
+		class_weight='balanced',
+	)
 	model.fit(X_train, y_train)
 	y_pred = model.predict(X_test)
+	y_proba = model.predict_proba(X_test)[:, 1]
+
 	precision = precision_score(y_test, y_pred)
-	print(precision)
+	recall = recall_score(y_test, y_pred)
+	f1 = f1_score(y_test, y_pred)
+	accuracy = accuracy_score(y_test, y_pred)
+	roc_auc = roc_auc_score(y_test, y_proba)
+	print(f"Precision: {precision:.4f}")
+	print(f"Recall: {recall:.4f}")
+	print(f"F1: {f1:.4f}")
+	print(f"Accuracy: {accuracy:.4f}")
+	print(f"ROC-AUC: {roc_auc:.4f}")
+
+	best_threshold = find_optimal_threshold(y_test, y_proba)
+	print(f"Best probability threshold (F1 maximized): {best_threshold:.2f}")
 
 	# Persist artifacts
 	out_dir = Path('models')
@@ -148,7 +189,8 @@ def main():
 		'embedding_dim': 100,
 		'tfidf_max_features': 3000,
 		'ngram_range': [1, 2],
-		'numeric_feature_count': int(num_sparse.shape[1])
+		'numeric_feature_count': int(num_sparse.shape[1]),
+		'best_threshold': best_threshold
 	}
 	with open(out_dir / 'feature_meta.json', 'w', encoding='utf-8') as f:
 		json.dump(meta, f)

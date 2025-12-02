@@ -86,6 +86,19 @@ def main():
 	idf = tfidf.idf_
 	index_to_idf = {token: float(idf[idx]) for token, idx in vocab.items()}
 	emb_dim = int(meta.get('embedding_dim', 100))
+	default_threshold = float(meta.get('best_threshold', 0.5))
+	default_threshold = min(max(default_threshold, 0.0), 1.0)
+
+	with st.sidebar:
+		st.header("Prediction Settings")
+		threshold = st.slider(
+			"Probability threshold (duplicate)",
+			min_value=0.1,
+			max_value=0.9,
+			value=float(default_threshold) if 0.1 <= default_threshold <= 0.9 else 0.5,
+			step=0.01,
+			help="Probabilities above this value will be labeled as duplicates."
+		)
 
 	with st.form("dup_form"):
 		q1_input = st.text_area("Question 1", height=100)
@@ -115,16 +128,18 @@ def main():
 		X = hstack([q1_tfidf, q2_tfidf, emb_sparse, num_sparse], format='csr')
 
 		# Predict
-		pred = model.predict(X)[0]
 		if hasattr(model, "predict_proba"):
 			proba = float(model.predict_proba(X)[0, 1])
 		else:
 			# fallback for models without predict_proba
-			proba = float(pred)
+			proba = float(model.predict(X)[0])
+
+		pred = 1 if proba >= threshold else 0
 
 		st.subheader("Result")
 		st.write(f"Prediction: {'Duplicate' if pred == 1 else 'Not Duplicate'}")
 		st.write(f"Confidence (duplicate class): {proba:.4f}")
+		st.caption(f"Using probability threshold: {threshold:.2f}")
 
 		# Clean intermediate objects
 		del num_features, num_sparse, q1_tfidf, q2_tfidf, q1_emb, q2_emb, emb, emb_sparse, X
